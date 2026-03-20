@@ -1,0 +1,55 @@
+version: "3"
+
+services:
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    platform: linux/amd64
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+    environment:
+      - CLUSTER_NAME=test
+      - ENSURE_NAMENODE_DIR=/hadoop/dfs/name
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+      - HDFS_CONF_dfs_namenode_datanode_registration_ip_hostname_check=false
+
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode
+    platform: linux/amd64
+    volumes:
+      - hadoop_datanode:/hadoop/dfs/data
+    environment:
+      - SERVICE_PRECONDITION=namenode:9870
+      - CLUSTER_NAME=test
+      - ENSURE_DATANODE_DIR=/hadoop/dfs/data
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+      - HDFS_CONF_dfs_datanode_use_datanode_hostname=true
+    depends_on:
+      - namenode
+
+  spark-master:
+    image: bde2020/spark-master:3.0.1-hadoop3.2
+    container_name: spark-master
+    platform: linux/amd64
+    ports:
+      - "8080:8080"
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+
+  spark-worker:
+    image: bde2020/spark-worker:3.0.1-hadoop3.2
+    container_name: spark-worker
+    platform: linux/amd64
+    depends_on:
+      - spark-master
+    environment:
+      - "SPARK_MASTER=spark://spark-master:7077"
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+
+volumes:
+  hadoop_namenode:
+  hadoop_datanode:
