@@ -1,0 +1,32 @@
+# ─── Web / API ───────────────────────────────────────────────────────────────
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+
+# ─── Kafka ───────────────────────────────────────────────────────────────────
+kafka-python>=2.0.2
+
+# ─── Data / ML ───────────────────────────────────────────────────────────────
+pandas>=2.0.0
+pyarrow>=14.0.0
+numpy>=1.26.0
+scikit-learn>=1.4.0
+pillow>=10.0.0
+
+# ─── HTTP client ─────────────────────────────────────────────────────────────
+requests>=2.31.0
+
+# ─── Vector search ───────────────────────────────────────────────────────────
+hnswlib>=0.8.0
+
+# ─── Spark (used in spark_jobs only — not inside Ray jobs) ───────────────────
+pyspark>=3.5.0
+
+# ─── Ray (train + serve) ─────────────────────────────────────────────────────
+ray[serve]>=2.9.0
+
+# ─── Charts (EDA reports) ────────────────────────────────────────────────────
+matplotlib>=3.8.0
+
+# ─── Optional: richer embeddings (falls back to deterministic if absent) ─────
+# sentence-transformers>=2.6.0

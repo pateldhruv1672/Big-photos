@@ -1,0 +1,25 @@
+# Generated outputs
+outputs/
+models/
+data/mirflickr/images/
+data/mirflickr/tags.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Docker volumes (local)
+.docker/
+
+# Build pack (read-only starter template — not part of the team's code)
+build_pack/
+
+# Misc
+.DS_Store
+*.egg-info/

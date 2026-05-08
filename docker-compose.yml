@@ -1,0 +1,253 @@
+# ─── Distributed Photo Intelligence Platform ────────────────────────────────
+# Run with: make all
+# Services: HDFS, Spark, Kafka, Ray, Ollama, Backend, Consumer, Frontend
+
+x-common-env: &common-env
+  NAMENODE_HOST: namenode
+  HDFS_USER: root
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  RAY_SERVE_URL: http://ray-head:8000
+  OLLAMA_HOST: ollama
+  OLLAMA_PORT: "11434"
+  EMBEDDING_DIM: "128"
+
+services:
+
+  # ─── HDFS ───────────────────────────────────────────────────────────────────
+
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    hostname: namenode
+    environment:
+      CLUSTER_NAME: photo-cluster
+      CORE_CONF_fs_defaultFS: hdfs://namenode:9000
+    ports:
+      - "9870:9870"   # NameNode Web UI
+      - "9000:9000"   # HDFS RPC
+    volumes:
+      - namenode:/hadoop/dfs/name
+      - ./data:/data
+      - ./outputs:/outputs
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9870"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode
+    depends_on:
+      namenode:
+        condition: service_healthy
+    environment:
+      CORE_CONF_fs_defaultFS: hdfs://namenode:9000
+      SERVICE_PRECONDITION: "namenode:9870"
+    volumes:
+      - datanode:/hadoop/dfs/data
+
+  # ─── Spark ──────────────────────────────────────────────────────────────────
+
+  spark-master:
+    image: apache/spark:3.5.0
+    container_name: spark-master
+    user: root
+    command: >
+      bash -c "
+        pip install -q pandas pyarrow pillow numpy matplotlib &&
+        /opt/spark/sbin/start-master.sh &&
+        tail -f /opt/spark/logs/*master*.out
+      "
+    environment:
+      SPARK_MASTER_HOST: spark-master
+      SPARK_HOME: /opt/spark
+    ports:
+      - "7077:7077"   # Spark master RPC
+      - "8081:8080"   # Spark Web UI
+    volumes:
+      - ./:/app
+    working_dir: /app
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  spark-worker:
+    image: apache/spark:3.5.0
+    container_name: spark-worker
+    user: root
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    command: >
+      bash -c "
+        pip install -q pandas pyarrow pillow numpy matplotlib &&
+        /opt/spark/sbin/start-worker.sh spark://spark-master:7077 &&
+        tail -f /opt/spark/logs/*worker*.out
+      "
+    environment:
+      SPARK_MASTER_URL: spark://spark-master:7077
+      SPARK_WORKER_MEMORY: 2G
+      SPARK_WORKER_CORES: "2"
+      SPARK_HOME: /opt/spark
+    volumes:
+      - ./:/app
+    working_dir: /app
+
+  # ─── Kafka (KRaft mode, no ZooKeeper) ───────────────────────────────────────
+
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: kafka
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+
+  # ─── Ray cluster ────────────────────────────────────────────────────────────
+
+  ray-head:
+    image: rayproject/ray:2.9.3-py310
+    container_name: ray-head
+    hostname: ray-head
+    user: root
+    command: >
+      bash -lc "apt-get update && apt-get install -y --no-install-recommends build-essential g++ &&
+      pip install -q kafka-python pandas pyarrow pillow numpy scikit-learn requests hnswlib python-multipart sentence-transformers 'typer==0.9.0' 'click==8.1.7' &&
+      pip install -q torch torchvision --index-url https://download.pytorch.org/whl/cpu &&
+      ray start --head --dashboard-host=0.0.0.0 --port=6379 --num-cpus=2 && tail -f /dev/null"
+    environment:
+      <<: *common-env
+    ports:
+      - "8265:8265"   # Ray Dashboard
+      - "6379:6379"   # Ray GCS
+      - "8000:8000"   # Ray Serve / serve app
+    volumes:
+      - ./:/app
+    working_dir: /app
+    healthcheck:
+      test: ["CMD", "ray", "status"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+
+  ray-worker:
+    image: rayproject/ray:2.9.3-py310
+    container_name: ray-worker
+    user: root
+    depends_on:
+      ray-head:
+        condition: service_healthy
+    command: >
+      bash -lc "apt-get update && apt-get install -y --no-install-recommends build-essential g++ &&
+      pip install -q kafka-python pandas pyarrow pillow numpy scikit-learn requests hnswlib python-multipart sentence-transformers 'typer==0.9.0' 'click==8.1.7' &&
+      pip install -q torch torchvision --index-url https://download.pytorch.org/whl/cpu &&
+      ray start --address=ray-head:6379 --num-cpus=2 && tail -f /dev/null"
+    environment:
+      <<: *common-env
+    volumes:
+      - ./:/app
+    working_dir: /app
+
+  # ─── Ollama (VLM) ───────────────────────────────────────────────────────────
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11435:11434"   # mapped to 11435 to avoid conflict with local Ollama
+    volumes:
+      - ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:11434"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ─── Ray Serve (classifier inference) ───────────────────────────────────────
+  # Runs inside ray-head container via start_ray_serve.sh (no separate service).
+  # Port 8000 is already exposed by ray-head above.
+
+  # ─── Backend API ─────────────────────────────────────────────────────────────
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    container_name: backend
+    depends_on:
+      kafka:
+        condition: service_healthy
+      namenode:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./:/app
+    working_dir: /app
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8080 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ─── Kafka Upload Consumer ───────────────────────────────────────────────────
+
+  upload-consumer:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    container_name: upload-consumer
+    depends_on:
+      kafka:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+    volumes:
+      - ./:/app
+    working_dir: /app
+    command: python consumer/upload_consumer.py
+    restart: on-failure
+
+  # ─── React Frontend ──────────────────────────────────────────────────────────
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    container_name: frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+    working_dir: /app
+    command: sh -c "npm install --include=dev && exec npm run dev -- --host 0.0.0.0 --port 3000"
+
+volumes:
+  namenode:
+  datanode:
+  ollama:
