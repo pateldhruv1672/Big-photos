@@ -129,7 +129,7 @@ The platform is organized into **5 sequential parts**, each building on the prev
 
 ### Part 1 — Data Ingestion (HDFS + Spark EDA)
 
-Extracts **100 real photographs** from the MIRFLICKR-25K dataset with 24 annotation categories, uploads them to HDFS, and runs exploratory data analysis.
+Extracts real photographs from the MIRFLICKR-25K dataset with 24 annotation categories, uploads them to HDFS, and runs exploratory data analysis.
 
 - Downloads and processes real MIRFLICKR-25K images (500x333 RGB JPEGs)
 - Parses 24 annotation label files per image (animals, sky, water, people, etc.)
@@ -156,7 +156,7 @@ Enriches each image with captions, labels, categories, and vector embeddings for
 
 Fine-tunes a CNN on the real images and deploys it as a serving endpoint.
 
-- Fine-tunes **MobileNet V3 Small** (pretrained on ImageNet) on 100 MIRFLICKR images
+- Fine-tunes **MobileNet V3 Small** (pretrained on ImageNet) on MIRFLICKR-25K images
 - **Multi-label classification** with `BCEWithLogitsLoss` (sigmoid per class, 24 classes)
 - 80/20 train/val split, **8 epochs**, image augmentation (random flip, color jitter)
 - Freezes early convolutional layers, fine-tunes classifier head + last conv blocks
@@ -331,7 +331,7 @@ curl -X POST http://localhost:8080/upload \
 
 ## Model Performance
 
-**MobileNet V3 Small** fine-tuned on 80 training images (20 validation), 8 epochs:
+**MobileNet V3 Small** fine-tuned on MIRFLICKR-25K with 80/20 train-val split, 8 epochs:
 
 | Metric | Score |
 |--------|-------|
@@ -366,12 +366,12 @@ curl -X POST http://localhost:8080/upload \
 
 ## Dataset
 
-**MIRFLICKR-25K** — 100 real photographs selected for annotation richness.
+**MIRFLICKR-25K** — real photographs selected for annotation richness.
 
 - **24 annotation categories:** animals, baby, bird, car, clouds, dog, female, flower, food, indoor, lake, male, night, people, plant_life, portrait, river, sea, sky, structures, sunset, transport, tree, water
 - **Average ~5 labels per image**
-- **Image format:** 500×333 RGB JPEGs
-- **Display categories** (weighted scoring): people (43), nature (25), city (21), travel (11)
+- **Image format:** RGB JPEGs
+- **Display categories** (weighted scoring): people, nature, city, travel, food, event, art
 
 ---
 
