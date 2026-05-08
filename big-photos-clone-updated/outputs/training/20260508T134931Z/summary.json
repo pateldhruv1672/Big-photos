@@ -1,0 +1,19 @@
+{
+  "run_tag": "20260508T134931Z",
+  "trained_at": "2026-05-08T13:49:31.628384+00:00",
+  "rows": 126,
+  "classes": [
+    "other"
+  ],
+  "num_trials": 4,
+  "best_config": {
+    "lr": 0.001,
+    "weight_decay": 1e-05,
+    "batch_size": 12,
+    "dropout": 0.2,
+    "optimizer": "sgd",
+    "epochs": 3
+  },
+  "best_accuracy": 1.0,
+  "best_f1_weighted": 1.0
+}

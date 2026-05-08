@@ -1,0 +1,19 @@
+{
+  "run_tag": "20260508T135123Z",
+  "trained_at": "2026-05-08T13:51:23.172371+00:00",
+  "rows": 80,
+  "classes": [
+    "animals"
+  ],
+  "num_trials": 4,
+  "best_config": {
+    "lr": 0.001,
+    "weight_decay": 1e-05,
+    "batch_size": 12,
+    "dropout": 0.2,
+    "optimizer": "sgd",
+    "epochs": 3
+  },
+  "best_accuracy": 1.0,
+  "best_f1_weighted": 1.0
+}

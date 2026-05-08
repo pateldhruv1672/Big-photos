@@ -1,0 +1,5 @@
+2026-05-08 13:49:31,606 INFO tune_transfer_mobilenet - Run started: 20260508T134931Z
+2026-05-08 13:49:31,607 INFO tune_transfer_mobilenet - Samples: 126, classes: ['other']
+2026-05-08 13:49:31,628 INFO tune_transfer_mobilenet - Best config: {"lr": 0.001, "weight_decay": 1e-05, "batch_size": 12, "dropout": 0.2, "optimizer": "sgd", "epochs": 3}
+2026-05-08 13:49:31,628 INFO tune_transfer_mobilenet - Best metrics: accuracy=1.0000 f1=1.0000
+2026-05-08 13:49:34,300 INFO tune_transfer_mobilenet - Artifacts written to local_dir=/app/outputs/training/20260508T134931Z and hdfs=/photos/models/image_classifier/tuning_transfer/20260508T134931Z

@@ -1,0 +1,16 @@
+FROM rayproject/ray:2.31.0-py310
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash curl build-essential openjdk-17-jre-headless \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+COPY . /app
+CMD ["bash"]
